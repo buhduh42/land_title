@@ -1,3 +1,6 @@
+#TODO will probably generalize this makefile for all services, 
+#or the go services anyway.
+
 DIR := $(realpath $(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 ROOT_DIR ?= $(realpath ${DIR}/../..)
 SCRIPTS_DIR ?= ${ROOT_DIR}/scripts
@@ -23,15 +26,19 @@ ${BUILD}: ${SRC} ${BUILD_DIRS}
 		--tag ${SERVICE}_build               \
 		--target ${SERVICE}_build            \
 		--build-arg GO_VERSION=${GO_VERSION} \
+		--file ${DOCKERFILE}                 \
 		${DIR}
 	@touch $@
 
 ${TEST}: ${SRC} ${BUILD_DIRS}
 	docker build                             \
 		--tag ${SERVICE}_test                \
-		--target ${SERVICE}_test             \
+		--target service_test                \
 		--build-arg GO_VERSION=${GO_VERSION} \
+		--build-arg SERVICE=${SERVICE}       \
+		--file ${DOCKERFILE}                 \
 		${DIR}
+	@touch $@
 
 .PHONY: test
 test: ${BUILD_DIRS} ${TEST}

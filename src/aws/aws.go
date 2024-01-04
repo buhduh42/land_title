@@ -1,8 +1,10 @@
 package aws
 
 import (
+	"fmt"
 	"land_title/util"
 
+	oAWS "github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	oSession "github.com/aws/aws-sdk-go/aws/session"
 )
@@ -15,7 +17,7 @@ const (
 type Session oSession.Session
 
 // TODO will need to expand the shared credentials capabilities, good for now
-func NewSession(pRegion, pProfile *string) *Session {
+func NewSession(pRegion, pProfile *string) (*Session, error) {
 	var region, profile string
 	if pRegion == nil {
 		region = DEF_REGION
@@ -30,6 +32,15 @@ func NewSession(pRegion, pProfile *string) *Session {
 			Region: util.Ptr(region),
 		},
 	)
-	sesion := oSession.NewSession(config)
-	return session(*Session)
+	sess, err := oSession.NewSession(config)
+	if err != nil {
+		return nil, err
+	}
+	if sess == nil {
+		return nil, fmt.Errorf(
+			"AWS SDK returned a nil pointer when calling NewSession, can't continue.",
+		)
+	}
+	temp_sess := Session(*sess)
+	return &temp_sess, nil
 }

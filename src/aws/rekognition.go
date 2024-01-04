@@ -1,6 +1,8 @@
 package aws
 
 import (
+	"fmt"
+
 	oSession "github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/rekognition"
 	"github.com/aws/aws-sdk-go/service/rekognition/rekognitioniface"
@@ -16,9 +18,15 @@ type rekognitionClient struct {
 }
 
 // this should ONLY be called from main()
-func NewRekognitionClient(session *Session) RekognitionClient {
-	rClient := rekognition.New(session(*oSession.Session))
-	return BuildRekognitionClient(rClient)
+func NewRekognitionClient(session *Session) (RekognitionClient, error) {
+	if session == nil {
+		return nil, fmt.Errorf(
+			"Passed session to aws.NewRekognitionClient can't be nil.",
+		)
+	}
+	tSess := oSession.Session((*session))
+	rClient := rekognition.New(&tSess)
+	return BuildRekognitionClient(rClient), nil
 }
 
 // convenience function, mostly for dependency injection
