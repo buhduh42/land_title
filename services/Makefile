@@ -8,3 +8,6 @@ test-%-service:
 
 clean-%-service:
 	$(MAKE) -C ${DIR}/$* clean
+
+create-%-service:
+	$(MAKE) -C ${DIR}/$* create-service

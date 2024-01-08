@@ -1,4 +1,4 @@
-module land_title
+module landtitle
 
 go 1.21.5
 

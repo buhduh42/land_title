@@ -1,5 +1,6 @@
 package aws
 
+/*
 import (
 	"fmt"
 
@@ -25,8 +26,9 @@ func NewS3Client(session *Session) (S3Client, error) {
 
 // convenience function, mostly for dependency injection
 // while testing
-func BuildS3Client(client iface.RekognitionAPI) RekognitionClient {
+func BuildS3Client(client s3iface.) S3Client {
 	return &s3Client{
 		client: client,
 	}
 }
+*/

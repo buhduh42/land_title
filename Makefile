@@ -17,6 +17,7 @@ SERVICES := $(shell find ${SERVICE_DIR} -mindepth 1 -maxdepth 1 -type d -exec ba
 BUILD_SERVICE_TGTS := $(SERVICES:%=build-%-service)
 TEST_SERVICE_TGTS := $(SERVICES:%=test-%-service)
 CLEAN_SERVICE_TGTS := $(SERVICES:%=clean-%-service)
+CREATE_SERVICE_TGTS := $(SERVICES:%=create-%-service)
 
 LIB_MOD_DIRS := $(shell find ${SRC_DIR} -mindepth 1 -maxdepth 1 -type d)
 LIB_MODS := $(foreach lib,${LIB_MOD_DIRS},$(shell basename $(lib)))
@@ -50,11 +51,17 @@ $(foreach lib,${LIB_MODS},$(eval $(call GET_LIB_SRC,$(lib))))
 .PHONY: build
 build: ${BUILD_SERVICE_TGTS}
 
+.PHONY: create_services
+create_services: ${CREATE_SERVICE_TGTS}
+
+create-%-service: test_libs
+	$(MAKE) -C ${SERVICE_DIR} $@
+
 .PHONY: test
 test: test_libs ${TEST_SERVICE_TGTS}
 
 .PHONY: test_libs
-test_libs: ${BUILD_DIRS} ${TEST_LIBS}
+test_libs: vendor_libs ${BUILD_DIRS} ${TEST_LIBS}
 
 ${TEST_LIBS}: ${GO_SRC}
 	docker run --rm              \
@@ -81,6 +88,9 @@ build_services: ${BUILD_SERVICE_TGTS}
 
 test-%-service: vendor_libs
 	$(MAKE) -C ${SERVICE_DIR} $@
+
+.PHONY: create_images
+create_images: ${CREATE_SERVICE_TGTS}
 
 .PHONY: vendor_libs
 vendor_libs: ${GO_VENDOR}

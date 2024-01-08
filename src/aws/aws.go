@@ -2,7 +2,7 @@ package aws
 
 import (
 	"fmt"
-	"land_title/util"
+	"landtitle/util"
 
 	oAWS "github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"

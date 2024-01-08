@@ -1,47 +1,80 @@
+#TODO need to think about these build-args now, defaults?, consistency?
+#TODO, yup....
 ROOT_DIR ?= $(realpath ${DIR}/../..)
 SCRIPTS_DIR ?= ${ROOT_DIR}/scripts
 SRC_DIR := ${DIR}/src
 
+GO_VENDOR := ${SRC_DIR}/vendor
+
 BUILD_DIR := ${DIR}/build
 BUILD_DIRS := ${BUILD_DIR}
-
 BUILD := ${BUILD_DIR}/build
 TEST := ${BUILD_DIR}/test
 
-DOCKERFILE ?= ${DIR}/dockerfile
+DOCKERFILE ?= ${ROOT_DIR}/resources/Dockerfile
 
 SERVICE ?= $(shell basename ${DIR})
 SRC := $(shell find ${SRC_DIR} -type f -name '*.go') ${DOCKERFILE}
-GO_VERSION ?= $(shell ${SCRIPTS_DIR}/scrape_go_version.sh ${DIR}/go.mod)
+GO_VERSION ?= $(shell ${SCRIPTS_DIR}/scrape_go_version.sh ${SRC_DIR}/go.mod)
+GO_LIBS := ${GO_VENDOR}/landtitle
+
+ENTRYPOINT ?= ${BUILD_DIR}/entrypoint
+SERVICE_IMAGE ?= alpine:latest
+CREATE_SERVICE := ${BUILD_DIR}/${SERVICE}_image
+
+define GLOBAL_BUILD_ARGS
+--build-arg SERVICE_IMAGE=${SERVICE_IMAGE} \
+--build-arg GO_VERSION=${GO_VERSION}       \
+--build-arg SERVICE=${SERVICE}
+endef
 
 .PHONY: build
 build: ${BUILD_DIRS} ${BUILD}
 
-${BUILD}: ${SRC} ${BUILD_DIRS}
-	docker build                             \
-		--tag ${SERVICE}_build               \
-		--target ${SERVICE}_build            \
-		--build-arg GO_VERSION=${GO_VERSION} \
-		--file ${DOCKERFILE}                 \
+${ENTRYPOINT}: ${ROOT_DIR}/resources/entrypoint
+	@cp $< $@
+
+${BUILD}: ${GO_LIBS} ${SRC} ${BUILD_DIRS} ${ENTRYPOINT}
+	docker build             \
+		--tag ${SERVICE}_build \
+		--target service_build \
+		${GLOBAL_BUILD_ARGS}   \
+		--file ${DOCKERFILE}   \
 		${DIR}
 	@touch $@
 
-${TEST}: ${SRC} ${BUILD_DIRS}
-	docker build                             \
-		--tag ${SERVICE}_test                \
-		--target service_test                \
-		--build-arg GO_VERSION=${GO_VERSION} \
-		--build-arg SERVICE=${SERVICE}       \
-		--file ${DOCKERFILE}                 \
+${TEST}: ${GO_LIBS} ${SRC} ${BUILD_DIRS}
+	docker build            \
+		--tag ${SERVICE}_test \
+		--target service_test \
+		${GLOBAL_BUILD_ARGS}  \
+		--file ${DOCKERFILE}  \
 		${DIR}
 	@touch $@
+
+.PHONY: create_service
+create-service: ${TEST} ${BUILD} ${CREATE_SERVICE}
+
+${CREATE_SERVICE}: ${TEST} ${BUILD}
+	docker build           \
+		--tag ${SERVICE}     \
+		--target service     \
+		--file ${DOCKERFILE} \
+		${GLOBAL_BUILD_ARGS} \
+		${DIR}
+	@touch $@
+
+${GO_LIBS}: ${BUILD_DIRS}
+	@cp -a ${ROOT_DIR}/src/ ${GO_VENDOR}/landtitle
 
 .PHONY: test
 test: ${BUILD_DIRS} ${TEST}
 
 ${BUILD_DIRS}:
 	@mkdir -p $@
+	#can't put GO_VENDER in BUILD_DIRS
+	@mkdir -p ${GO_VENDOR}
 
 .PHONY: clean
 clean:
-	@rm -rf ${BUILD_DIRS}
+	@rm -rf ${BUILD_DIRS} ${GO_VENDOR}
