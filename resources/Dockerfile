@@ -7,7 +7,7 @@ RUN echo testing $SERVICE
 FROM golang:$GO_VERSION as lib_test
 ARG LIB
 WORKDIR /usr/src/lib
-COPY go.mod ./
+COPY go.mod go.sum ./
 RUN go mod download && go mod verify
 COPY . .
 RUN go test -v ./$LIB/...
