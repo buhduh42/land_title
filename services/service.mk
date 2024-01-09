@@ -54,7 +54,7 @@ ${TEST}: ${GO_LIBS} ${SRC}
 	touch $@
 
 .PHONY: create_service
-create-service: ${TEST} ${BUILD} ${CREATE_SERVICE}
+create-service: test build ${CREATE_SERVICE}
 
 ${CREATE_SERVICE}: ${TEST} ${BUILD}
 	docker buildx build    \
@@ -65,7 +65,7 @@ ${CREATE_SERVICE}: ${TEST} ${BUILD}
 		${DIR}
 	touch $@
 
-${GO_LIBS}: ${BUILD_DIRS}
+${GO_LIBS}:
 	cp -a ${ROOT_DIR}/src/ ${GO_VENDOR}/landtitle
 
 .PHONY: test

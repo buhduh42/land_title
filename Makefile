@@ -31,7 +31,7 @@ export SCRIPTS_DIR := ${DIR}/scripts
 
 LIB_GO_VERSION := $(shell ${SCRIPTS_DIR}/scrape_go_version.sh ${SRC_DIR}/go.mod)
 
-GO_SRC := $(shell find ${SRC_DIR} -type f -name '*.go')
+GO_SRC := $(filter-out ${SRC_DIR}/vendor/%, $(shell find ${SRC_DIR} -type f -name '*.go'))
 
 define GET_LIB_SRC
 $(1)_LIB_SRC := $$(shell find ${SRC_DIR}/$(1) -type f -name '*.go')
