@@ -36,7 +36,7 @@ ${ENTRYPOINT}: ${ROOT_DIR}/resources/entrypoint
 	@cp $< $@
 
 ${BUILD}: ${GO_LIBS} ${SRC} ${ENTRYPOINT}
-	docker buildx build      \
+	docker buildx build        \
 		--tag ${SERVICE}_build \
 		--target service_build \
 		${GLOBAL_BUILD_ARGS}   \
@@ -45,7 +45,7 @@ ${BUILD}: ${GO_LIBS} ${SRC} ${ENTRYPOINT}
 	@touch $@
 
 ${TEST}: ${GO_LIBS} ${SRC}
-	docker buildx build     \
+	docker buildx build       \
 		--tag ${SERVICE}_test \
 		--target service_test \
 		${GLOBAL_BUILD_ARGS}  \
@@ -57,7 +57,7 @@ ${TEST}: ${GO_LIBS} ${SRC}
 create-service: test build ${CREATE_SERVICE}
 
 ${CREATE_SERVICE}: ${TEST} ${BUILD}
-	docker buildx build    \
+	docker buildx build      \
 		--tag ${SERVICE}     \
 		--target service     \
 		--file ${DOCKERFILE} \

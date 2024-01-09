@@ -1,5 +1,3 @@
-#TODO create_services target doesn't seem to be respecting time stamps
-#shouldn't be running everytime
 DIR := $(realpath $(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 export ROOT_DIR := ${DIR}
 
@@ -36,7 +34,7 @@ GO_SRC := $(filter-out ${SRC_DIR}/vendor/%, $(shell find ${SRC_DIR} -type f -nam
 define GET_LIB_SRC
 $(1)_LIB_SRC := $$(shell find ${SRC_DIR}/$(1) -type f -name '*.go')
 ${BUILD_DIR}/lib_$(1)_mod_test: $${$(1)_LIB_SRC}
-	docker build                                 \
+	docker build                                   \
 		--tag $(1)_lib_test                      \
 		--target lib_test                        \
 		--build-arg GO_VERSION=${LIB_GO_VERSION} \
@@ -70,7 +68,7 @@ test_libs: vendor_libs ${BUILD_DIRS} ${TEST_LIBS}
 
 #TODO would this speed it up? probably not
 ${TEST_LIBS}: ${GO_SRC}
-	docker run --rm              \
+	docker run --rm                \
 		-v ${SRC_DIR}:/usr/src   \
 		-w /usr/src              \
 		golang:${LIB_GO_VERSION} \
@@ -101,7 +99,7 @@ test-%-service: vendor_libs
 vendor_libs: ${GO_VENDOR}
 
 ${GO_VENDOR}:
-	docker run --rm              \
+	docker run --rm                \
 		-v ${SRC_DIR}:/usr/src   \
 		-w /usr/src              \
 		golang:${LIB_GO_VERSION} \
