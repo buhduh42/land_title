@@ -50,6 +50,9 @@ TEST_LIBS := ${BUILD_DIR}/test_libs
 
 $(foreach lib,${LIB_MODS},$(eval $(call GET_LIB_SRC,$(lib))))
 
+ENV ?= local
+include ${DIR}/${ENV}.mk
+
 .PHONY: build
 build: ${BUILD_SERVICE_TGTS}
 
@@ -75,8 +78,9 @@ ${TEST_LIBS}: ${GO_SRC}
 	@touch $@
 
 #For development, only tests this particular directory
+#@not sure why make is complaining about this empty rule, but it is
 test-%-lib: ${BUILD_DIRS} vendor_libs ${BUILD_DIR}/lib_%_mod_test
-	@echo -n ""
+	@echo -n "stfu" > /dev/null
 
 .PHONY: clean
 clean: ${CLEAN_SERVICE_TGTS}

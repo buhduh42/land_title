@@ -1,4 +1,6 @@
-ARG GO_VERSION
+#I want these to fail when not set, but not fail when
+#they aren't needed
+ARG GO_VERSION=who_cares
 ARG SERVICE_IMAGE=who_cares
 
 FROM golang:$GO_VERSION as service_test
@@ -21,11 +23,6 @@ RUN cd src && go mod download && go mod verify
 COPY . .
 COPY build/entrypoint /entrypoint
 RUN cd src && go build -v -o /${SERVICE} .
-
-FROM nginx:1.25.3 AS controller
-WORKDIR /app
-COPY ./entrypoint /entrypoint
-CMD hello world
 
 FROM ${SERVICE_IMAGE} as service
 ARG SERVICE

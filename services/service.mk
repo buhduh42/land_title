@@ -33,7 +33,7 @@ endef
 build: ${BUILD_DIRS} ${BUILD}
 
 ${ENTRYPOINT}: ${ROOT_DIR}/resources/entrypoint
-	cp $< $@
+	@cp $< $@
 
 ${BUILD}: ${GO_LIBS} ${SRC} ${ENTRYPOINT}
 	docker buildx build      \
@@ -42,7 +42,7 @@ ${BUILD}: ${GO_LIBS} ${SRC} ${ENTRYPOINT}
 		${GLOBAL_BUILD_ARGS}   \
 		--file ${DOCKERFILE}   \
 		${DIR}
-	touch $@
+	@touch $@
 
 ${TEST}: ${GO_LIBS} ${SRC}
 	docker buildx build     \
@@ -51,7 +51,7 @@ ${TEST}: ${GO_LIBS} ${SRC}
 		${GLOBAL_BUILD_ARGS}  \
 		--file ${DOCKERFILE}  \
 		${DIR}
-	touch $@
+	@touch $@
 
 .PHONY: create_service
 create-service: test build ${CREATE_SERVICE}
@@ -63,18 +63,18 @@ ${CREATE_SERVICE}: ${TEST} ${BUILD}
 		--file ${DOCKERFILE} \
 		${GLOBAL_BUILD_ARGS} \
 		${DIR}
-	touch $@
+	@touch $@
 
 ${GO_LIBS}:
-	cp -a ${ROOT_DIR}/src/ ${GO_VENDOR}/landtitle
+	@cp -a ${ROOT_DIR}/src/ ${GO_VENDOR}/landtitle
 
 .PHONY: test
 test: ${BUILD_DIRS} ${TEST}
 
 ${BUILD_DIRS}:
-	mkdir -p $@
+	@mkdir -p $@
 	#can't put GO_VENDER in BUILD_DIRS
-	mkdir -p ${GO_VENDOR}
+	@mkdir -p ${GO_VENDOR}
 
 .PHONY: clean
 clean:
