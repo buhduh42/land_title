@@ -1,5 +1,5 @@
 ARG GO_VERSION
-ARG SERVICE_IMAGE
+ARG SERVICE_IMAGE=who_cares
 
 FROM golang:$GO_VERSION as service_test
 ARG SERVICE
@@ -29,7 +29,8 @@ CMD hello world
 
 FROM ${SERVICE_IMAGE} as service
 ARG SERVICE
+ENV SERVICE=$SERVICE
 COPY --from=service_build /entrypoint /entrypoint
-COPY --from=service_build /$SERVICE /$SERVICE
-ENTRYPOINT /entrypoint
-CMD /${SERVICE}
+COPY --from=service_build /$SERVICE /service/
+ENTRYPOINT ["/entrypoint"]
+CMD /service/$SERVICE

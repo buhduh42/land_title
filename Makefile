@@ -1,3 +1,5 @@
+#TODO create_services target doesn't seem to be respecting time stamps
+#shouldn't be running everytime
 DIR := $(realpath $(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 export ROOT_DIR := ${DIR}
 
@@ -63,6 +65,7 @@ test: test_libs ${TEST_SERVICE_TGTS}
 .PHONY: test_libs
 test_libs: vendor_libs ${BUILD_DIRS} ${TEST_LIBS}
 
+#TODO would this speed it up? probably not
 ${TEST_LIBS}: ${GO_SRC}
 	docker run --rm              \
 		-v ${SRC_DIR}:/usr/src   \
@@ -72,7 +75,8 @@ ${TEST_LIBS}: ${GO_SRC}
 	@touch $@
 
 #For development, only tests this particular directory
-test-%-lib: ${BUILD_DIR}/lib_%_mod_test
+test-%-lib: ${BUILD_DIRS} vendor_libs ${BUILD_DIR}/lib_%_mod_test
+	@echo -n ""
 
 .PHONY: clean
 clean: ${CLEAN_SERVICE_TGTS}
@@ -89,13 +93,10 @@ build_services: ${BUILD_SERVICE_TGTS}
 test-%-service: vendor_libs
 	$(MAKE) -C ${SERVICE_DIR} $@
 
-.PHONY: create_images
-create_images: ${CREATE_SERVICE_TGTS}
-
 .PHONY: vendor_libs
 vendor_libs: ${GO_VENDOR}
 
-${GO_VENDOR}: ${GO_SRC}
+${GO_VENDOR}:
 	docker run --rm              \
 		-v ${SRC_DIR}:/usr/src   \
 		-w /usr/src              \

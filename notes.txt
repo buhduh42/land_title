@@ -1,0 +1,2 @@
+super annoying bug, make runs 2 times before correctly assessing dependency graph
+suspect it has to do when the context is copies and/or when i search for *,go in the service src directory

@@ -3,6 +3,6 @@
 script=$(basename "$0")
 #this might be silly/stupid, 
 #but this exec scares me a little
-rm ${script}
+#rm ${script}
 
 exec $@

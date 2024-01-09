@@ -1,0 +1,7 @@
+services:
+  frontend:
+    image: frontend
+    ports: 
+      - "8080:8080"
+  controller:
+    image: controller
