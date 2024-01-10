@@ -171,41 +171,273 @@ func (r *routeTestData) compare(t *testing.T, index int, runString string) {
 	}
 }
 
-//NOTE, too lazy to test for unordered callbacks
-//TODO, here? need to lookup methods
-func (r *RouteYaml) compare(toCmp *route) bool {
-	if len(r.Callbacks) != len(toCmp.callbacks) {
-		return false	
+func (p *routeParameter) compare(toCmp *routeParameter) bool {
+	if p.pType != toCmp.pType {
+		return false
 	}
-	for i, m := range r.Methods {
-		if m != toCmp[i] {
+	if p.regex != toCmp.regex {
+		return false
+	}
+	if p.required != toCmp.required {
+		return false
+	}
+	return true
+}
+
+// callbacks ARE ordered, they must be
+func (r *route) compare(toCmp *route) bool {
+	if len(r.callbacks) != len(toCmp.callbacks) {
+		return false
+	}
+	for i, c := range r.callbacks {
+		if c != toCmp.callbacks[i] {
 			return false
 		}
 	}
-
+	if len(r.methods) != len(toCmp.methods) {
+		return false
+	}
+	for i, m := range r.methods {
+		if m != toCmp.methods[i] {
+			return false
+		}
+	}
+	//NOTE forcing order
+	if len(r.params) != len(toCmp.params) {
+		return false
+	}
+	for i, p := range r.params {
+		if !p.compare(toCmp.params[i]) {
+			return false
+		}
+	}
+	return true
 }
 
 func TestRouteYamlToRoute(t *testing.T) {
-	testData := []*struct{
+	testData := []struct {
 		routeYaml *RouteYaml
-		expRoute *route
-		expError bool
-		msg string
+		expRoute  *route
+		expError  bool
+		msg       string
 	}{
-		&struct{
+		{
 			&RouteYaml{
 				Callbacks: []string{"foo"},
 			},
 			&route{
 				callbacks: []string{"foo"},
-				methods: []httpMethod{getMethod},
+				methods:   []httpMethod{getMethod},
 			},
 			false,
 			"simplest test case",
 		},
+		{
+			&RouteYaml{
+				Callbacks: []string{},
+			},
+			nil,
+			true,
+			"callbacks can't be empty",
+		},
+		{
+			&RouteYaml{
+				Callbacks: []string{
+					"foo",
+					"bar",
+					"baz",
+				},
+				Methods: []string{"blarg"},
+			},
+			nil,
+			true,
+			"method unrecognized",
+		},
+		{
+			&RouteYaml{
+				Callbacks: []string{
+					"foo",
+					"bar",
+					"baz",
+				},
+				Methods: []string{
+					"get",
+					"post",
+				},
+			},
+			&route{
+				callbacks: []string{
+					"foo",
+					"bar",
+					"baz",
+				},
+				methods: []httpMethod{
+					getMethod,
+					postMethod,
+				},
+			},
+			true,
+			"list of accepted methods",
+		},
+		{
+			&RouteYaml{
+				Callbacks: []string{
+					"foo",
+				},
+				Params: map[string]*ParamYaml{
+					"foo": nil,
+				},
+			},
+			&route{
+				callbacks: []string{
+					"foo",
+				},
+				methods: []httpMethod{
+					getMethod,
+				},
+				params: map[string]*routeParameter{
+					"foo": &routeParameter{
+						pType:    stringParameterType,
+						regex:    "",
+						required: true,
+					},
+				},
+			},
+			false,
+			"empty parameter, verify defaults",
+		},
+		{
+			&RouteYaml{
+				Callbacks: []string{
+					"foo",
+				},
+				Params: map[string]*ParamYaml{
+					"foo": &ParamYaml{
+						Type:  "number",
+						Regex: `\d{1,3}`,
+					},
+				},
+			},
+			&route{
+				callbacks: []string{
+					"foo",
+				},
+				methods: []httpMethod{
+					getMethod,
+				},
+				params: map[string]*routeParameter{
+					"foo": &routeParameter{
+						pType:    numberParameterType,
+						regex:    `\d{1,3}`,
+						required: true,
+					},
+				},
+			},
+			false,
+			"verify various parameter values",
+		},
+		{
+			&RouteYaml{
+				Callbacks: []string{
+					"foo",
+				},
+				Params: map[string]*ParamYaml{
+					"foo": &ParamYaml{
+						Type:     "blarg",
+						Required: false,
+					},
+				},
+			},
+			nil,
+			true,
+			"unrecognized parameter type",
+		},
+		{
+			&RouteYaml{
+				Callbacks: []string{
+					"foo",
+					"bar",
+				},
+				Methods: []string{
+					"get",
+					"post",
+				},
+				Params: map[string]*ParamYaml{
+					"foo": &ParamYaml{
+						Type:     "number",
+						Regex:    `\d{1,3}`,
+						Required: false,
+					},
+					"bar": &ParamYaml{
+						Type:     "string",
+						Regex:    `this/is/a/regex`,
+						Required: true,
+					},
+					"baz": &ParamYaml{
+						Type: "bool",
+					},
+				},
+			},
+			&route{
+				callbacks: []string{
+					"foo",
+					"bar",
+				},
+				methods: []httpMethod{
+					getMethod,
+					postMethod,
+				},
+				params: map[string]*routeParameter{
+					"foo": &routeParameter{
+						pType:    numberParameterType,
+						regex:    `\d{1,3}`,
+						required: false,
+					},
+					"bar": &routeParameter{
+						pType:    stringParameterType,
+						regex:    `this/is/a/regex`,
+						required: true,
+					},
+					"baz": &routeParameter{
+						pType:    booleanParameterType,
+						required: true,
+						regex:    "",
+					},
+				},
+			},
+			false,
+			"more complex good case",
+		},
 	}
+	runString := "test route yaml to route"
 	for i, td := range testData {
-
+		toCheck, err := newRoute(td.routeYaml)
+		if td.expError {
+			if err == nil {
+				t.Errorf(
+					renderMsg(i, runString, "expected error"),
+				)
+			}
+			continue
+		}
+		if err != nil {
+			t.Errorf(
+				renderMsg(
+					i, runString, "did not expect error, got '%s'", err,
+				),
+			)
+			continue
+		}
+		if !td.expRoute.compare(toCheck) {
+			t.Errorf(
+				renderMsg(
+					i, runString,
+					"routes did not match, expected:\n %s\n got:\n %s",
+					td.expRoute, toCheck,
+				),
+			)
+			continue
+		}
 	}
 }
 

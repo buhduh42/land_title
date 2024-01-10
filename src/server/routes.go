@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 
@@ -28,11 +29,16 @@ type RouteYaml struct {
 type route struct {
 	methods   []httpMethod
 	callbacks []string
-	params    []*routeParameter
+	params    map[string]*routeParameter
+}
+
+func (r *route) String() string {
+	toPrint, _ := json.MarshalIndent(r, "", "  ")
+	return string(toPrint)
 }
 
 type routeParameter struct {
-	pType    httpParameterType
+	pType    httpParameterType `json:"type"`
 	regex    string
 	required bool
 }
@@ -40,7 +46,7 @@ type routeParameter struct {
 func newMethods(ms []string) ([]httpMethod, error) {
 	//get is the default method when not defined
 	if len(ms) == 0 {
-		return []httpMethod{getMethod}
+		return []httpMethod{getMethod}, nil
 	}
 	toRet := make([]httpMethod, len(ms))
 	for i, m := range ms {
@@ -58,32 +64,35 @@ func newParam(p *ParamYaml) (*routeParameter, error) {
 	if err != nil {
 		return nil, err
 	}
+	if pType == nil {
+		return nil, fmt.Errorf("parameter type was set to nil for '%s'", p.Type)
+	}
 	return &routeParameter{
-		pType:    pType,
+		pType:    *pType,
 		regex:    p.Regex,
 		required: p.Required,
-	}
+	}, nil
 }
 
 func newRoute(r *RouteYaml) (*route, error) {
-	if len(r.callbacks) == 0 {
+	if len(r.Callbacks) == 0 {
 		return nil, fmt.Errorf("at least one callback is required")
 	}
 	methods, err := newMethods(r.Methods)
 	if err != nil {
 		return nil, err
 	}
-	params := make([]*routeParameter, len(r.Params))
-	for i, p := range r.Params {
-		tmp, err := newParam(p)
+	params := make(map[string]*routeParameter)
+	for pKey, param := range r.Params {
+		tmp, err := newParam(param)
 		if err != nil {
 			return nil, err
 		}
-		params[i] = tmpe
+		params[pKey] = tmp
 	}
 	return &route{
 		methods:   methods,
-		callbacks: callbacks,
+		callbacks: r.Callbacks,
 		params:    params,
 	}, nil
 }
@@ -97,10 +106,22 @@ func loadRouteYaml(r io.Reader) (map[string]*RouteYaml, error) {
 	if err = yaml.Unmarshal(rawBytes, &yamlData); err != nil {
 		return nil, err
 	}
-	//fmt.Printf("yamlData: %+v\n", yamlData["/"])
 	return yamlData, nil
 }
 
-func LoadRoutes(r io.Reader) (map[string]Route, error) {
-	return nil, nil
+func LoadRoutes(r io.Reader) (map[string]*Route, error) {
+	routeYaml, err := loadRouteYaml(r)
+	if err != nil {
+		return nil, err
+	}
+	toRet := make(map[string]*Route)
+	for k, v := range routeYaml {
+		tmp, err := newRoute(v)
+		if err != nil {
+			return nil, err
+		}
+		rte := Route(*tmp)
+		toRet[k] = &rte
+	}
+	return toRet, nil
 }

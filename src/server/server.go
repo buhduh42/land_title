@@ -33,11 +33,11 @@ const (
 
 type httpParameterType string
 
-func newHttpParameter(p string) (*httpParameterType, error) {
+func newHttpParameterType(p string) (*httpParameterType, error) {
 	parameterMap := map[string]httpParameterType{
-		"number":  numberParameter,
-		"string":  stringParameter,
-		"boolean": booleanParameter,
+		"number":  numberParameterType,
+		"string":  stringParameterType,
+		"boolean": booleanParameterType,
 	}
 	tmp, ok := parameterMap[p]
 	if !ok {
@@ -48,9 +48,9 @@ func newHttpParameter(p string) (*httpParameterType, error) {
 }
 
 const (
-	numberParameter  httpParameterType = "number"
-	stringParameter                    = "string"
-	booleanParameter                   = "boolean"
+	numberParameterType  httpParameterType = "number"
+	stringParameterType                    = "string"
+	booleanParameterType                   = "boolean"
 )
 
 type Callback func(map[string]string, http.ResponseWriter) (bool, error)
