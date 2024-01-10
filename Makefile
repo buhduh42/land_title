@@ -1,3 +1,4 @@
+#TODO write a help target, generalize it as a tool for ALL makefiles?
 DIR := $(realpath $(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 export ROOT_DIR := ${DIR}
 
@@ -81,8 +82,8 @@ test-%-lib: ${BUILD_DIRS} vendor_libs ${BUILD_DIR}/lib_%_mod_test
 	@echo -n "stfu" > /dev/null
 
 .PHONY: clean
-clean: ${CLEAN_SERVICE_TGTS}
-	@rm -rf ${BUILD_DIRS} ${GO_VENDOR}
+clean: ${CLEAN_SERVICE_TGTS} clean_vendor_libs
+	@rm -rf ${BUILD_DIRS}
 
 .PHONY: clean_services
 clean_services: ${CLEAN_SERVICE_TGTS}
@@ -94,6 +95,10 @@ build_services: ${BUILD_SERVICE_TGTS}
 
 test-%-service: vendor_libs
 	$(MAKE) -C ${SERVICE_DIR} $@
+
+.PHONY: clean_vendor_libs
+clean_vendor_libs:
+	@rm -rf ${GO_VENDOR}
 
 .PHONY: vendor_libs
 vendor_libs: ${GO_VENDOR}
