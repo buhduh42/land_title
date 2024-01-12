@@ -5,7 +5,7 @@
       required: true
     bar:
       type: number
-      regex: \d{1,5}
+      regex: '\d{1,5}'
       required: false
   callbacks:
     - first
@@ -19,7 +19,7 @@
       required: false
     biff:
       type: string
-      regex: \d{3}-\d{2}-\d{4}
+      regex: '\d{3}-\d{2}-\d{4}'
   callbacks:
     - first
     - second
@@ -32,21 +32,12 @@
     another:
       type: boolean
       required: false
-    second:
-      type: string
-      #this is always required, as it will match the url pattern
-      required: false
   callbacks:
     - first
     - second
     - second_third
     - only_second
 /first/{second}/{third}:
-  params:
-    second:
-      type: string
-    third:
-      type: number
   callbacks:
     - first
     - second
