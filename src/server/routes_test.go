@@ -978,7 +978,7 @@ func TestRealRouteYaml(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed opening test data with error: '%s'", err)
 	}
-	routes, err := LoadRoutes(r)
+	routes, err := loadRoutes(r)
 	if err != nil {
 		t.Fatalf("failed loading route yaml with error: '%s'", err)
 	}
@@ -990,16 +990,15 @@ func TestRealRouteYaml(t *testing.T) {
 		)
 	}
 	for path, rte := range testData {
-		tmp, ok := routes[path]
+		toCheck, ok := routes[path]
 		if !ok {
 			t.Errorf("did not find route for '%s'", path)
 			continue
 		}
-		toCheck := tmp.(route)
-		if !rte.compare(&toCheck) {
+		if !rte.compare(toCheck) {
 			t.Errorf(
 				"routes did not match for path: '%s'\nexp:\n%s\ngot:\n%s",
-				path, rte, &toCheck,
+				path, rte, toCheck,
 			)
 		}
 	}

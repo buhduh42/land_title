@@ -237,18 +237,17 @@ func verifyPath(path string) error {
 	return nil
 }
 
-func LoadRoutes(r io.Reader) (map[string]Route, error) {
+func loadRoutes(r io.Reader) (map[string]*route, error) {
 	routeYaml, err := loadRouteYaml(r)
 	if err != nil {
 		return nil, err
 	}
-	toRet := make(map[string]Route)
+	toRet := make(map[string]*route)
 	for k, v := range routeYaml {
-		tmp, err := newRoute(v)
+		rte, err := newRoute(v)
 		if err != nil {
 			return nil, err
 		}
-		rte := Route(*tmp)
 		toRet[k] = rte
 	}
 	return toRet, nil

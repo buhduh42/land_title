@@ -41,7 +41,21 @@ type Callback func(
 	*http.Request,
 ) (bool, error)
 
-type Server interface{}
+// intended to block thread it's on
+type Server interface {
+	StartServer(int) error
+}
+
+type server struct {
+	pathHandlers map[string]*myHandler
+}
+
+func (s *server) StartServer(port int) error {
+	for path, handler := range s.pathHandlers {
+		http.Handle(path, handler)
+	}
+	return http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
+}
 
 const pathBits int = 255
 
@@ -55,37 +69,6 @@ type myHandler struct {
 	route            *route
 }
 
-func newHandler(
-	path string, rte *route, callbackMap map[string]Callback,
-) (*myHandler, error) {
-	callbacks := make([]Callback, len(rte.callbacks))
-	var ok bool
-	for i, cb := range rte.callbacks {
-		if callbacks[i], ok = callbackMap[cb]; !ok {
-			return nil, fmt.Errorf(
-				"could not find callback from callback map: '%s'", cb,
-			)
-		}
-	}
-	var dynamicPaths []string = nil
-	var dynamicPathIndex uint8
-	for i, p := range strings.Split(path, "/") {
-		if dynamicPathRegex.MatchString(p) {
-			if dynamicPaths == nil {
-				dynamicPathIndex = uint8(i)
-				dynamicPaths = make([]string, 0)
-			}
-			dynamicPaths = append(dynamicPaths, strings.Trim(p, "{}"))
-		}
-	}
-	return &myHandler{
-		callbacks:        callbacks,
-		dynamicPaths:     dynamicPaths,
-		dynamicPathIndex: dynamicPathIndex,
-		route:            rte,
-	}, nil
-}
-
 func (m *myHandler) buildDynamicParameters(
 	path string,
 ) (map[string]string, error) {
@@ -94,7 +77,7 @@ func (m *myHandler) buildDynamicParameters(
 		return toRet, nil
 	}
 	subPaths := strings.Split(strings.Trim(path, "/"), "/")
-	if int(m.dynamicPathIndex) >= len(subPaths)-1 {
+	if int(m.dynamicPathIndex) >= len(subPaths) {
 		return nil, fmt.Errorf(
 			"dynamic path index out of bounds for current path: '%s'",
 			path,
@@ -102,6 +85,12 @@ func (m *myHandler) buildDynamicParameters(
 	}
 	dynamicPaths := subPaths[m.dynamicPathIndex:]
 	for i, p := range dynamicPaths {
+		if _, ok := m.route.params[m.dynamicPaths[i]]; !ok {
+			return nil, fmt.Errorf(
+				"route for handler does not contain parameter for dynamic path: %s",
+				m.dynamicPaths[i],
+			)
+		}
 		toRet[m.dynamicPaths[i]] = p
 	}
 	return toRet, nil
@@ -197,7 +186,41 @@ func getPathHandler(
 	//return
 	return nil, nil
 }
+func newHandler(
+	path string, rte *route, callbackMap map[string]Callback,
+) (*myHandler, error) {
+	callbacks := make([]Callback, len(rte.callbacks))
+	var ok bool
+	for i, cb := range rte.callbacks {
+		if callbacks[i], ok = callbackMap[cb]; !ok {
+			return nil, fmt.Errorf(
+				"could not find callback from callback map: '%s'", cb,
+			)
+		}
+	}
+	var dynamicPaths []string = nil
+	var dynamicPathIndex uint8
+	for i, p := range strings.Split(path, "/") {
+		if dynamicPathRegex.MatchString(p) {
+			if dynamicPaths == nil {
+				dynamicPathIndex = uint8(i) - 1
+				dynamicPaths = make([]string, 0)
+			}
+			dynamicPaths = append(dynamicPaths, strings.Trim(p, "{}"))
+		}
+	}
+	return &myHandler{
+		callbacks:        callbacks,
+		dynamicPaths:     dynamicPaths,
+		dynamicPathIndex: dynamicPathIndex,
+		route:            rte,
+	}, nil
+}
 
+// When setting up routes in routes.yaml, anything with path form: {foo}
+// is a dynamic path, this returns the beginning part of the path with NO
+// dynamic paths to pass as the url pattern for net/http
+// eg, /foo/bar/{baz}/{biff} -> /foo/bar/
 func getHandlePath(path string) string {
 	toRet := strings.Trim(path, "/")
 	subPaths := strings.Split(toRet, "/")
@@ -218,7 +241,20 @@ func getHandlePath(path string) string {
 }
 
 func NewServer(
-	routes io.Reader, callbacks map[string][]Callback, port uint,
+	routes io.Reader, callbacks map[string]Callback, port uint,
 ) (Server, error) {
-	return nil, nil
+	loadedRoutes, err := loadRoutes(routes)
+	if err != nil {
+		return nil, err
+	}
+	pathHandlers := make(map[string]*myHandler)
+	for path, rte := range loadedRoutes {
+		handlePath := getHandlePath(path)
+		handler, err := newHandler(path, rte, callbacks)
+		if err != nil {
+			return nil, err
+		}
+		pathHandlers[handlePath] = handler
+	}
+	return &server{pathHandlers: pathHandlers}, nil
 }

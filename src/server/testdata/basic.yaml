@@ -1,0 +1,8 @@
+/:
+  params:
+    foo:
+      type: string
+      required: false
+  callbacks:
+    - cb1 #simplest test returns true, nil
+    - cb5 #simplest test returns true, nil
