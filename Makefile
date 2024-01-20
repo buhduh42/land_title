@@ -1,4 +1,5 @@
 #TODO write a help target, generalize it as a tool for ALL makefiles?
+#TODO write individual test with run support
 DIR := $(realpath $(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 export ROOT_DIR := ${DIR}
 
@@ -32,17 +33,22 @@ LIB_GO_VERSION := $(shell ${SCRIPTS_DIR}/scrape_go_version.sh ${SRC_DIR}/go.mod)
 
 GO_SRC := $(filter-out ${SRC_DIR}/vendor/%, $(shell find ${SRC_DIR} -type f -name '*.go'))
 
+#TODO, should i somehow differntiate between go/no-go for tests and/or keep
+#the test output for future reference between runs?
+#TODO rename these to consecutive number extensions instead, see 
+#scripts/rename_previous_files.sh for the ALMOST complete tool, wasting time
+#do it later
 define GET_LIB_SRC
-$(1)_LIB_SRC := $$(shell find ${SRC_DIR}/$(1) -type f -name '*.go')
+$(1)_LIB_SRC := $$(shell find ${SRC_DIR}/$(1) -type f -name '*.go') $$(wildcard ${SRC_DIR}/$(1)/testdata/**/)
 ${BUILD_DIR}/lib_$(1)_mod_test: $${$(1)_LIB_SRC}
-	docker build                                   \
-		--tag $(1)_lib_test                      \
-		--target lib_test                        \
-		--build-arg GO_VERSION=${LIB_GO_VERSION} \
-		--build-arg LIB=$(1)                     \
-		--file ${DOCKERFILE}                     \
-		${SRC_DIR}
-	@touch $$@
+	@if test -e $$@; then mv $$@ $$@_$$(shell date '+%Y%m%d%H%M%S'); fi
+	docker run --rm                                   \
+		-v ${SRC_DIR}:/usr/src  \
+		-v ${BUILD_DIR}:/output \
+		-w /usr/src \
+		golang:${LIB_GO_VERSION} \
+		bash -c 'go test -v ./$(1)/... > /output/$$(notdir $$@)' || true
+	@cat $$@
 endef
 
 TEST_LIBS := ${BUILD_DIR}/test_libs
@@ -67,9 +73,8 @@ test: test_libs ${TEST_SERVICE_TGTS}
 .PHONY: test_libs
 test_libs: vendor_libs ${BUILD_DIRS} ${TEST_LIBS}
 
-#TODO would this speed it up? probably not
 ${TEST_LIBS}: ${GO_SRC}
-	docker run --rm                \
+	docker run --rm              \
 		-v ${SRC_DIR}:/usr/src   \
 		-w /usr/src              \
 		golang:${LIB_GO_VERSION} \

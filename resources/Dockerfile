@@ -7,13 +7,14 @@ FROM golang:$GO_VERSION as service_test
 ARG SERVICE
 RUN echo testing $SERVICE
 
-FROM golang:$GO_VERSION as lib_test
-ARG LIB
-WORKDIR /usr/src/lib
-COPY go.mod go.sum ./
-RUN go mod download && go mod verify
-COPY . .
-RUN go test -v ./$LIB/...
+#ended up doing this with docker run
+#FROM golang:$GO_VERSION as lib_test
+#ARG LIB
+#WORKDIR /usr/src/lib
+#COPY go.mod go.sum ./
+#RUN go mod download && go mod verify
+#COPY . .
+#RUN go test -v ./$LIB/...
 
 FROM golang:$GO_VERSION as service_build
 ARG SERVICE

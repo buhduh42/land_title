@@ -3,11 +3,14 @@ package server
 import (
 	"fmt"
 	"io"
+	"landtitle/util"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
+
+	logger "github.com/buhduh/go-logger"
 )
 
 func TestGetHandlePath(t *testing.T) {
@@ -43,7 +46,16 @@ func TestGetHandlePath(t *testing.T) {
 			"/foo/bar/{yolo}/{biff}/",
 			"/foo/bar/",
 		},
+		{
+			"/{biff}",
+			"/",
+		},
+		{
+			"/{foo}/{bar}",
+			"/",
+		},
 	}
+	//myLogger = newTestLogger(t, util.Ptr(logger.TRACE))
 	for i, td := range testData {
 		tested := getHandlePath(td.test)
 		if tested != td.exp {
@@ -53,6 +65,7 @@ func TestGetHandlePath(t *testing.T) {
 			)
 		}
 	}
+	myLogger = newTestLogger(t, util.Ptr(logger.SILENT))
 }
 
 func TestNewHandlerDynamicPaths(t *testing.T) {
@@ -179,8 +192,9 @@ func TestBuildDynamicParameters(t *testing.T) {
 				dynamicPathIndex: 0,
 				route: &route{
 					params: routeParameterMap{
-						//none of this stuff really matters for this particular test
-						"foo": &routeParameter{},
+						"foo": &routeParameter{
+							source: sourceURL,
+						},
 					},
 				},
 			},
@@ -200,9 +214,12 @@ func TestBuildDynamicParameters(t *testing.T) {
 				dynamicPathIndex: 1,
 				route: &route{
 					params: routeParameterMap{
-						//none of this stuff really matters for this particular test
-						"foo": &routeParameter{},
-						"bar": &routeParameter{},
+						"foo": &routeParameter{
+							source: sourceURL,
+						},
+						"bar": &routeParameter{
+							source: sourceURL,
+						},
 					},
 				},
 			},
@@ -223,14 +240,18 @@ func TestBuildDynamicParameters(t *testing.T) {
 				dynamicPathIndex: 1,
 				route: &route{
 					params: routeParameterMap{
-						//none of this stuff really matters for this particular test
-						"foo": &routeParameter{},
-						"bar": &routeParameter{},
+						"foo": &routeParameter{
+							source: sourceURL,
+						},
+						"bar": &routeParameter{
+							source: sourceURL,
+						},
 					},
 				},
 			},
 			path: "/static/dynamicFoo",
 			exp: map[string]string{
+
 				"foo": "dynamicFoo",
 			},
 			isError: false,
@@ -245,9 +266,12 @@ func TestBuildDynamicParameters(t *testing.T) {
 				dynamicPathIndex: 5,
 				route: &route{
 					params: routeParameterMap{
-						//none of this stuff really matters for this particular test
-						"foo": &routeParameter{},
-						"bar": &routeParameter{},
+						"foo": &routeParameter{
+							source: sourceURL,
+						},
+						"bar": &routeParameter{
+							source: sourceURL,
+						},
 					},
 				},
 			},
@@ -265,9 +289,12 @@ func TestBuildDynamicParameters(t *testing.T) {
 				dynamicPathIndex: 1,
 				route: &route{
 					params: routeParameterMap{
-						//none of this stuff really matters for this particular test
-						"foo": &routeParameter{},
-						"baz": &routeParameter{},
+						"foo": &routeParameter{
+							source: sourceURL,
+						},
+						"baz": &routeParameter{
+							source: sourceURL,
+						},
 					},
 				},
 			},
@@ -354,47 +381,257 @@ var callbackDataMap map[string]callbackData = map[string]callbackData{
 	},
 }
 
-func makeCallback(calllist **[]string, name string, res bool, err error) Callback {
+type testLogger struct {
+	t *testing.T
+}
+
+var logLevel logger.LogLevel = logger.TRACE
+
+func newTestLogger(t *testing.T, pLevel *logger.LogLevel) logger.Logger {
+	level := logLevel
+	if pLevel != nil {
+		level = *pLevel
+	}
+	return logger.NewLogger(level, "test logger", &testLogger{t})
+}
+
+func (t *testLogger) Write(data []byte) (int, error) {
+	t.t.Logf(string(data))
+	return len(data), nil
+}
+
+func makeCallback(
+	tLogger logger.Logger, name string, res bool, err error,
+) Callback {
 	//use the headers to verify params are correct
 	return func(params map[string]string, w http.ResponseWriter, r *http.Request) (bool, error) {
+		w.Header().Add("Call_list", name)
 		for k, v := range params {
 			w.Header().Add(k, v)
 		}
-		tmp := *(*calllist)
-		tmp = append(tmp, name)
-		*calllist = &tmp
 		return res, err
 	}
 }
 
 type testPath struct {
-	body   *string
-	target string
-	method string
+	serverPath   string
+	target       string
+	method       string
+	body         *string
+	expParams    map[string]string
+	expCallbacks []string
+	expCode      int
 }
 
-// TODO here,
-// just want to call it and see what happens
-// parameters SHOULD be encoded in the headers for checking
+const StatusGoodRequest int = http.StatusOK
+
 func TestServer(t *testing.T) {
-	var callbacks map[string]Callback
-	var calllist *[]string
+	callbacks := make(map[string]Callback)
+	myLogger = newTestLogger(t, nil)
 	for name, cb := range callbackDataMap {
-		callbacks[name] = makeCallback(&calllist, name, cb.res, cb.err)
+		callbacks[name] = makeCallback(myLogger, name, cb.res, cb.err)
 	}
 	testData := []struct {
-		serverYaml string
-		msg        string
-		expErr     bool
-		testPaths  testPath
+		serverYaml    string
+		msg           string
+		serverCreated bool
+		testPaths     []testPath
 	}{
-		"testdata/basic.yaml",
-		"simplest test",
-		false,
-		testPath{
-			nil,
-			"http://example.com&foo=no_idea",
-			"GET",
+		{
+			//0
+			"testdata/basic.yaml",
+			"simplest test",
+			true,
+			[]testPath{
+				testPath{
+					"/",
+					"http://example.com?foo=blarg",
+					"GET",
+					nil,
+					map[string]string{
+						"Foo": "blarg",
+					},
+					[]string{"cb1", "cb5"},
+					http.StatusOK,
+				},
+			},
+		},
+		{
+			//1
+			"testdata/basic.yaml",
+			"single dynamic parameter",
+			true,
+			[]testPath{
+				testPath{
+					"/foo/",
+					"http://example.com/foo/123",
+					"GET",
+					nil,
+					map[string]string{
+						"Blarg": "123",
+					},
+					[]string{"cb1", "cb5"},
+					http.StatusOK,
+				},
+			},
+		},
+		{
+			//2
+			"testdata/basic.yaml",
+			"incorrect parameter type",
+			true,
+			[]testPath{
+				testPath{
+					"/bar/",
+					"http://example.com/bar?blarg=123",
+					"GET",
+					nil,
+					nil,
+					nil,
+					http.StatusBadRequest,
+				},
+			},
+		},
+		{
+			//3
+			"testdata/basic.yaml",
+			"incorrect parameter type",
+			true,
+			[]testPath{
+				testPath{
+					"/bar/",
+					"http://example.com/bar/yolo",
+					"GET",
+					nil,
+					nil,
+					nil,
+					http.StatusBadRequest,
+				},
+				testPath{
+					"/bar/",
+					"http://example.com/bar/true",
+					"GET",
+					nil,
+					map[string]string{
+						"Blarg": "true",
+					},
+					[]string{"cb1", "cb5"},
+					StatusGoodRequest,
+				},
+				testPath{
+					"/foo/",
+					"http://example.com/foo/123.43",
+					"GET",
+					nil,
+					map[string]string{
+						"Blarg": "123.43",
+					},
+					[]string{"cb1", "cb5"},
+					StatusGoodRequest,
+				},
+				testPath{
+					"/baz",
+					"http://example.com/baz",
+					"GET",
+					nil,
+					nil,
+					[]string{"cb2"},
+					StatusGoodRequest,
+				},
+			},
+		},
+		{
+			//4
+			"testdata/advanced_get.yaml",
+			"advanced get",
+			true,
+			[]testPath{
+				testPath{
+					"/bar/",
+					"http://example.com/bar/true",
+					"GET",
+					nil,
+					map[string]string{
+						"Blarg": "true",
+					},
+					[]string{"cb1", "cb5"},
+					http.StatusBadRequest,
+				},
+				testPath{
+					"/bar/",
+					"http://example.com/bar/FalSe",
+					"GET",
+					nil,
+					map[string]string{
+						"Blarg": "false",
+					},
+					[]string{"cb1", "cb5"},
+					StatusGoodRequest,
+				},
+				testPath{
+					"/bar/",
+					"http://example.com/bar?blarg=false",
+					"GET",
+					nil,
+					map[string]string{
+						"Blarg": "false",
+					},
+					[]string{"cb1", "cb5"},
+					StatusGoodRequest,
+				},
+				testPath{
+					"/bar/",
+					"http://example.com/bar/true?blarg=false",
+					"GET",
+					nil,
+					map[string]string{
+						"Blarg": "false",
+					},
+					[]string{"cb1", "cb5"},
+					StatusGoodRequest,
+				},
+				testPath{
+					"/bar/",
+					"http://example.com/bar/true?blarg=yolo",
+					"GET",
+					nil,
+					nil,
+					nil,
+					http.StatusBadRequest,
+				},
+				testPath{
+					"/foo/",
+					"http://example.com/foo?biff=yolo",
+					"GET",
+					nil,
+					map[string]string{
+						"Biff": "yolo",
+					},
+					[]string{"cb1", "cb5"},
+					StatusGoodRequest,
+				},
+				testPath{
+					"/foo/",
+					"http://example.com/foo/123.43?biff=yolo",
+					"GET",
+					nil,
+					map[string]string{
+						"Biff":  "yolo",
+						"Blarg": "123.43",
+					},
+					[]string{"cb1", "cb5"},
+					StatusGoodRequest,
+				},
+				testPath{
+					"/foo/",
+					"http://example.com/foo/123.43",
+					"GET",
+					nil,
+					nil,
+					nil,
+					http.StatusBadRequest,
+				},
+			},
 		},
 	}
 	for i, td := range testData {
@@ -407,16 +644,24 @@ func TestServer(t *testing.T) {
 				),
 			)
 		}
-		server, err := NewServer(serverYaml, callbacks)
+		tmpServer, err := NewServer(serverYaml, callbacks)
 		serverYaml.Close()
-		if td.expErr != nil {
-			if err == nil {
-				t.Errorf(
-					getTestMessage(i, td.msg, "expected error, received none"),
-				)
-			}
+		if !td.serverCreated && tmpServer != nil {
+			t.Errorf(
+				getTestMessage(i, td.msg,
+					"server should not have been created and thrown error",
+				),
+			)
 			continue
 		}
+		if td.serverCreated && tmpServer == nil {
+			t.Errorf(
+				getTestMessage(
+					i, td.msg, "server was not created with error: '%s'", err,
+				),
+			)
+		}
+		testServer := tmpServer.(*server)
 		for _, testPath := range td.testPaths {
 			w := httptest.NewRecorder()
 			var body io.Reader = nil
@@ -424,35 +669,71 @@ func TestServer(t *testing.T) {
 				body = strings.NewReader(*testPath.body)
 			}
 			r := httptest.NewRequest(testPath.method, testPath.target, body)
-			tmpList := make([]string, 0)
-			calllist = &tmpList
-			server[p].ServeHTTP(w, r)
-			//something about params....
-			//TODO verify header/params
-			//if testPath.params !=
+			testServer.pathHandlers[testPath.serverPath].ServeHTTP(w, r)
+			if len(testPath.expCallbacks) != len(w.HeaderMap["Call_list"]) {
+				t.Errorf(
+					getTestMessage(
+						i, td.msg,
+						"incorrect callback count, exp: %d, got: %d",
+						len(testPath.expCallbacks), len(w.HeaderMap["Call_list"]),
+					),
+				)
+			} else {
+				for cbIndex, cb := range w.HeaderMap["Call_list"] {
+					if testPath.expCallbacks[cbIndex] != cb {
+						t.Errorf(
+							getTestMessage(
+								i, td.msg,
+								"incorrect callback sequence at index %d, exp: %s, got: %s",
+								cbIndex, testPath.expCallbacks[cbIndex], cb,
+							),
+						)
+					}
+				}
+			}
+			if testPath.expCode != w.Code {
+				t.Errorf(
+					getTestMessage(
+						i, td.msg, "unexpected response code, exp: %d, res: %d",
+						testPath.expCode, w.Code,
+					),
+				)
+			}
+			if testPath.expCode != StatusGoodRequest {
+				continue
+			}
+			if len(testPath.expParams)+1 != len(w.HeaderMap) {
+				t.Errorf(
+					getTestMessage(
+						i, td.msg,
+						"parameter map incorrect length, exp: %d, got: %d",
+						len(testPath.expParams), len(w.HeaderMap)-1,
+					),
+				)
+			}
+			for hName, hValues := range w.HeaderMap {
+				if hName == "Call_list" {
+					continue
+				}
+				if _, ok := testPath.expParams[hName]; !ok {
+					t.Errorf(
+						getTestMessage(
+							i, td.msg, "parameter map missing value(s) for key: '%s'",
+							hName,
+						),
+					)
+					continue
+				}
+				if testPath.expParams[hName] != hValues[0] {
+					t.Errorf(
+						getTestMessage(
+							i, td.msg,
+							"parameter value incorrect, exp: %s, got: %s",
+							testPath.expParams[hName], hValues[0],
+						),
+					)
+				}
+			}
 		}
-	}
-}
-
-/*
-type Callback func(
-	map[string]string,
-	http.ResponseWriter,
-	*http.Request,
-) (bool, error)
-*/
-
-func makeCallback(calllist **[]string) Callback {
-	return func(
-		params map[string]string, w http.ResponseWriter, r *http.Request,
-	) (bool, error) {
-
-	}
-}
-
-func foo() {
-	var calllist *[]string
-	for _, cbName := range callbackNames {
-
 	}
 }

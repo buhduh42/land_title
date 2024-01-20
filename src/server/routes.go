@@ -15,29 +15,45 @@ type Route interface{}
 
 const defRequiredParameter bool = true
 
+type sourceType byte
+
+/*
+sourceURL would be /foo/{bar}
+sourceForm is embedded in the POST form
+sourceQuery is the GET parameter
+precedence in increasing order, url -> form  -> query
+*/
+const (
+	sourceURL sourceType = 1 << iota
+	sourceForm
+	sourceQuery
+	defSource = sourceURL
+)
+
+type sourceTypeName string
+
+const (
+	sourceURLName   sourceTypeName = "url"
+	sourceFormName                 = "form"
+	sourceQueryName                = "query"
+	defSourceName                  = sourceURLName
+)
+
 type ParamYaml struct {
-	Type     string `yaml:"type,omitempty"`
-	Regex    string `yaml:"regex,omitempty"`
-	Required *bool  `yaml:"required,omitempty"`
+	Type       string `yaml:"type,omitempty"`
+	Regex      string `yaml:"regex,omitempty"`
+	Required   *bool  `yaml:"required,omitempty"`
+	SourceType string `yaml:"source,omitempty"`
+}
+
+func (p *ParamYaml) String() string {
+	toPrint, _ := json.MarshalIndent(p, "", "  ")
+	return string(toPrint)
 }
 
 const dynamicPathPattern string = `^\{[a-z]\w*\}$`
 
 type httpParameterType string
-
-func newHttpParameterType(p string) (*httpParameterType, error) {
-	parameterMap := map[string]httpParameterType{
-		"number":  numberParameterType,
-		"string":  stringParameterType,
-		"boolean": booleanParameterType,
-	}
-	tmp, ok := parameterMap[p]
-	if !ok {
-		return util.Ptr(httpParameterType("")),
-			fmt.Errorf("unrecognized parameter type: '%s'", p)
-	}
-	return &tmp, nil
-}
 
 const (
 	numberParameterType  httpParameterType = "number"
@@ -45,6 +61,19 @@ const (
 	booleanParameterType                   = "boolean"
 	defParameterType                       = stringParameterType
 )
+
+func newHttpParameterType(p string) (*httpParameterType, error) {
+	toRet := httpParameterType(p)
+	switch toRet {
+	case numberParameterType:
+		fallthrough
+	case stringParameterType:
+		fallthrough
+	case booleanParameterType:
+		return util.Ptr(toRet), nil
+	}
+	return nil, fmt.Errorf("unrecognized httpParameterType: '%s'", p)
+}
 
 var (
 	dynamicPathRegex         *regexp.Regexp = regexp.MustCompile(dynamicPathPattern)
@@ -69,6 +98,11 @@ type RouteYaml struct {
 	Callbacks []string              `yaml:"callbacks,flow"`
 }
 
+func (r *RouteYaml) String() string {
+	toPrint, _ := json.MarshalIndent(r, "", "  ")
+	return string(toPrint)
+}
+
 type route struct {
 	methods   []httpMethod
 	callbacks []string
@@ -84,6 +118,7 @@ type routeParameter struct {
 	pType    httpParameterType `json:"type"`
 	regex    *regexp.Regexp
 	required bool
+	source   sourceType `json:"source"`
 }
 
 func (r *routeParameter) isValid(check string) bool {
@@ -155,11 +190,37 @@ func newParam(p *ParamYaml) (*routeParameter, error) {
 			return nil, err
 		}
 	}
+	reqSourceType, err := getSourceMask(p.SourceType)
+	if err != nil {
+		return nil, err
+	}
 	return &routeParameter{
 		pType:    *pType,
 		regex:    regex,
 		required: *p.Required,
+		source:   reqSourceType,
 	}, nil
+}
+
+func getSourceMask(yamlSourceName string) (sourceType, error) {
+	if yamlSourceName == "" {
+		yamlSourceName = string(defSourceName)
+	}
+	sources := strings.Split(yamlSourceName, "|")
+	toRet := sourceType(0)
+	for _, s := range sources {
+		switch s {
+		case "form":
+			toRet |= sourceForm
+		case "query":
+			toRet |= sourceQuery
+		case "url":
+			toRet |= sourceURL
+		default:
+			return 0, fmt.Errorf("unrecognized parameter source: '%s'", s)
+		}
+	}
+	return toRet, nil
 }
 
 func newRoute(r *RouteYaml) (*route, error) {
@@ -185,17 +246,24 @@ func newRoute(r *RouteYaml) (*route, error) {
 	}, nil
 }
 
-func loadRouteYaml(r io.Reader) (map[string]*RouteYaml, error) {
+func loadRouteYaml(
+	r io.Reader,
+) (map[string]*RouteYaml, error) {
 	rawBytes, err := io.ReadAll(r)
 	if err != nil {
 		return nil, err
 	}
 	yamlData := make(map[string]*RouteYaml)
 	if err = yaml.Unmarshal(rawBytes, &yamlData); err != nil {
+		myLogger.Errorf("failed unmarshaling yaml with error: '%s'", err)
 		return nil, err
 	}
 	for p, rte := range yamlData {
 		if err = verifyPath(p); err != nil {
+			myLogger.Errorf(
+				"could not verify path: '%s' for route yaml with error: '%s'",
+				err,
+			)
 			return nil, err
 		}
 		//can't loop through map values, as they may be nil, the
@@ -209,8 +277,16 @@ func loadRouteYaml(r io.Reader) (map[string]*RouteYaml, error) {
 			if rte.Params[k].Required == nil {
 				rte.Params[k].Required = util.Ptr(defRequiredParameter)
 			}
+			if rte.Params[k].SourceType == "" {
+				rte.Params[k].SourceType = string(defSourceName)
+			}
+			myLogger.Tracef(
+				"loading route params for param name: '%s' and param:\n%s",
+				k, rte.Params[k],
+			)
 		}
 	}
+	myLogger.Tracef("loaded yaml data:\n%s", yamlData)
 	return yamlData, nil
 }
 

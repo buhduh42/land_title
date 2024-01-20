@@ -2,7 +2,7 @@
   params:
     foo:
       type: string
-      required: false
+      required: true
       source: query
   callbacks:
     - cb1 #simplest test returns true, nil
@@ -12,7 +12,11 @@
     blarg:
       type: number
       required: false
-      source: url
+      source: url|query
+    biff:
+      type: string
+      required: true
+      source: query
   callbacks:
     - cb1
     - cb5
@@ -21,11 +25,16 @@
     blarg:
       type: boolean
       required: false
-      source: url
+      source: url|query
   callbacks:
     - cb1
     - cb5
 /baz:
+  params:
+    foo:
+      type: string
+      regex: '^\d{3}-\d{2}-\d{4}$'
+      source: url:query
   callbacks:
     - cb2
     - cb1
