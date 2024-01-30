@@ -209,6 +209,7 @@ func getSourceMask(yamlSourceName string) (sourceType, error) {
 	sources := strings.Split(yamlSourceName, "|")
 	toRet := sourceType(0)
 	for _, s := range sources {
+		myLogger.Tracef("processing source: '%s'", s)
 		switch s {
 		case "form":
 			toRet |= sourceForm

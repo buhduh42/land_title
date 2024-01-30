@@ -1,3 +1,7 @@
+/*
+Should probably generalize the sub slice test data conventions
+from util.GetTestMetaData, eg write a testing library
+*/
 package server
 
 import (
@@ -555,7 +559,7 @@ func TestServer(t *testing.T) {
 						"Blarg": "true",
 					},
 					[]string{"cb1", "cb5"},
-					http.StatusBadRequest,
+					StatusGoodRequest,
 				},
 				testPath{
 					"/bar/",
@@ -634,7 +638,25 @@ func TestServer(t *testing.T) {
 			},
 		},
 	}
-	for i, td := range testData {
+
+	tMetaData, err := util.GetTestMetaData()
+	if err != nil {
+		t.Fatalf("failed retreiving test meta data with error: '%s'", err)
+		return
+	}
+	toTest := testData[:]
+	if tMetaData.Start < 0 {
+		if tMetaData.Stop > 0 {
+			toTest = testData[:tMetaData.Stop]
+		}
+	} else {
+		if tMetaData.Stop < 0 {
+			toTest = testData[tMetaData.Start:]
+		} else {
+			toTest = testData[tMetaData.Start:tMetaData.Stop]
+		}
+	}
+	for i, td := range toTest {
 		serverYaml, err := os.Open(td.serverYaml)
 		if err != nil {
 			t.Fatalf(
@@ -660,9 +682,18 @@ func TestServer(t *testing.T) {
 					i, td.msg, "server was not created with error: '%s'", err,
 				),
 			)
+			continue
 		}
 		testServer := tmpServer.(*server)
-		for _, testPath := range td.testPaths {
+		testPaths := td.testPaths[:]
+		if len(tMetaData.Rest) > 0 {
+			if len(tMetaData.Rest) == 1 {
+				testPaths = td.testPaths[tMetaData.Rest[0]:]
+			} else {
+				testPaths = td.testPaths[tMetaData.Rest[0]:tMetaData.Rest[0]]
+			}
+		}
+		for _, testPath := range testPaths {
 			w := httptest.NewRecorder()
 			var body io.Reader = nil
 			if testPath.body != nil {

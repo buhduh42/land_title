@@ -1,4 +1,3 @@
-// TODO logging
 package server
 
 import (
@@ -152,8 +151,8 @@ func (m *myHandler) doFormParameters(values url.Values) (map[string]string, erro
 // TODO break this up, use buildDynamicParameters
 // TODO contexts?
 func (m *myHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	myLogger.Tracef("Serving HTTP for handler:\n%+v", m)
-	myLogger.Tracef("request:\n%+v", r)
+	myLogger.Debugf("Serving HTTP for handler:\n%+v", m)
+	myLogger.Debugf("request:\n%+v", r)
 	validMethod := false
 	for _, method := range m.route.methods {
 		toCheck := strings.ToLower(r.Method)

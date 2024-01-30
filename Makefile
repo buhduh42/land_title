@@ -33,6 +33,9 @@ LIB_GO_VERSION := $(shell ${SCRIPTS_DIR}/scrape_go_version.sh ${SRC_DIR}/go.mod)
 
 GO_SRC := $(filter-out ${SRC_DIR}/vendor/%, $(shell find ${SRC_DIR} -type f -name '*.go'))
 
+TEST_NAME := $(shell ${SCRIPTS_DIR}/process_test_args.sh test_name)
+TEST_INDECES := $(shell ${SCRIPTS_DIR}/process_test_args.sh test_indeces)
+
 #TODO, should i somehow differntiate between go/no-go for tests and/or keep
 #the test output for future reference between runs?
 #TODO rename these to consecutive number extensions instead, see 
@@ -42,12 +45,13 @@ define GET_LIB_SRC
 $(1)_LIB_SRC := $$(shell find ${SRC_DIR}/$(1) -type f -name '*.go') $$(wildcard ${SRC_DIR}/$(1)/testdata/**/)
 ${BUILD_DIR}/lib_$(1)_mod_test: $${$(1)_LIB_SRC}
 	@if test -e $$@; then mv $$@ $$@_$$(shell date '+%Y%m%d%H%M%S'); fi
-	docker run --rm                                   \
-		-v ${SRC_DIR}:/usr/src  \
-		-v ${BUILD_DIR}:/output \
-		-w /usr/src \
-		golang:${LIB_GO_VERSION} \
-		bash -c 'go test -v ./$(1)/... > /output/$$(notdir $$@)' || true
+	docker run --rm                     \
+		-v ${SRC_DIR}:/usr/src          \
+		-v ${BUILD_DIR}:/output         \
+		-e TEST_INDECES=${TEST_INDECES} \
+		-w /usr/src                     \
+		golang:${LIB_GO_VERSION}        \
+		bash -c 'go test -v -run '${TEST_NAME}' ./$(1)/... > /output/$$(notdir $$@)' || true
 	@cat $$@
 endef
 
