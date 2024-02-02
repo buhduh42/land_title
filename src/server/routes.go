@@ -27,7 +27,7 @@ const (
 	sourceURL sourceType = 1 << iota
 	sourceForm
 	sourceQuery
-	defSource = sourceURL
+	defSource = sourceQuery
 )
 
 type sourceTypeName string
@@ -36,7 +36,7 @@ const (
 	sourceURLName   sourceTypeName = "url"
 	sourceFormName                 = "form"
 	sourceQueryName                = "query"
-	defSourceName                  = sourceURLName
+	defSourceName                  = sourceQueryName
 )
 
 type ParamYaml struct {
@@ -122,6 +122,11 @@ type routeParameter struct {
 }
 
 func (r *routeParameter) isValid(check string) bool {
+	if !r.required {
+		if check == "" {
+			return true
+		}
+	}
 	if !parameterRegexpMap[r.pType].MatchString(check) {
 		return false
 	}
@@ -274,6 +279,9 @@ func loadRouteYaml(
 				rte.Params[k] = &ParamYaml{
 					Type: defParameterType,
 				}
+			}
+			if rte.Params[k].Type == "" {
+				rte.Params[k].Type = defParameterType
 			}
 			if rte.Params[k].Required == nil {
 				rte.Params[k].Required = util.Ptr(defRequiredParameter)

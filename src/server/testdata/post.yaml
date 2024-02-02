@@ -1,0 +1,47 @@
+/:
+  methods:
+    - get
+  params:
+    foo: {}
+  callbacks:
+    - cb1
+/foo:
+  methods:
+    - post
+  params:
+    foo:
+      regex: '^[a-z]{3,9}$'
+      source: query
+  callbacks:
+    - cb1
+    - cb5
+/bar/{baz}:
+  methods:
+    - post
+    - get
+  params:
+    foo:
+      regex: '^[a-z]{3,9}$'
+      source: query
+    baz:
+      type: boolean
+      source: url|form
+  callbacks:
+    - cb1
+    - cb5
+/baz/{foo}/{bar}:
+  methods:
+    - post
+    - get
+  params:
+    foo:
+      type: number
+      source: url
+      required: true
+    bar:
+      type: number
+      source: url|query|form
+      required: false
+  callbacks:
+    - cb1
+    - cb5

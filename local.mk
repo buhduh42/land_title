@@ -4,3 +4,5 @@ deploy: create_services
 		docker compose -f ${RESOURCE_DIR}/compose.yaml stop; \
 	fi
 	@docker compose -f ${RESOURCE_DIR}/compose.yaml up -d
+
+export DCKR_ENV_FLAGS :=--net=host --memory=8g

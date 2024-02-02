@@ -3,6 +3,11 @@
 DIR := $(realpath $(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 export ROOT_DIR := ${DIR}
 
+ENV ?= local
+ifneq (,$(wildcard ${DIR}/${ENV}.mk))
+include ${DIR}/${ENV}.mk
+endif
+
 SRC_DIR := ${DIR}/src
 GO_VENDOR := ${SRC_DIR}/vendor
 GO_SRC := $(shell find ${SRC_DIR} -type f -name '*.go')
@@ -45,22 +50,20 @@ define GET_LIB_SRC
 $(1)_LIB_SRC := $$(shell find ${SRC_DIR}/$(1) -type f -name '*.go') $$(wildcard ${SRC_DIR}/$(1)/testdata/**/)
 ${BUILD_DIR}/lib_$(1)_mod_test: $${$(1)_LIB_SRC}
 	@if test -e $$@; then mv $$@ $$@_$$(shell date '+%Y%m%d%H%M%S'); fi
-	docker run --rm                     \
-		-v ${SRC_DIR}:/usr/src          \
-		-v ${BUILD_DIR}:/output         \
-		-e TEST_INDECES=${TEST_INDECES} \
-		-w /usr/src                     \
-		golang:${LIB_GO_VERSION}        \
-		bash -c 'go test -v -run '${TEST_NAME}' ./$(1)/... > /output/$$(notdir $$@)' || true
+	docker run --rm                       \
+		${DCKR_ENV_FLAGS}                 \
+		-v ${SRC_DIR}:/usr/src            \
+		-v ${BUILD_DIR}:/output           \
+		-e TEST_INDECES="${TEST_INDECES}" \
+		-w /usr/src                       \
+		golang:${LIB_GO_VERSION}          \
+		bash -c 'go test -v -run "${TEST_NAME}" ./$(1)/... > /output/$$(notdir $$@)' || true
 	@cat $$@
 endef
 
 TEST_LIBS := ${BUILD_DIR}/test_libs
 
 $(foreach lib,${LIB_MODS},$(eval $(call GET_LIB_SRC,$(lib))))
-
-ENV ?= local
-include ${DIR}/${ENV}.mk
 
 .PHONY: build
 build: ${BUILD_SERVICE_TGTS}
@@ -79,6 +82,7 @@ test_libs: vendor_libs ${BUILD_DIRS} ${TEST_LIBS}
 
 ${TEST_LIBS}: ${GO_SRC}
 	docker run --rm              \
+		${DCKR_ENV_FLAGS}        \
 		-v ${SRC_DIR}:/usr/src   \
 		-w /usr/src              \
 		golang:${LIB_GO_VERSION} \
@@ -113,7 +117,8 @@ clean_vendor_libs:
 vendor_libs: ${GO_VENDOR}
 
 ${GO_VENDOR}:
-	docker run --rm                \
+	docker run --rm              \
+		${DCKR_ENV_FLAGS}        \
 		-v ${SRC_DIR}:/usr/src   \
 		-w /usr/src              \
 		golang:${LIB_GO_VERSION} \

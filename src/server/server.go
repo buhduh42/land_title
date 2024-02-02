@@ -8,7 +8,7 @@ import (
 	"net/url"
 	"strings"
 
-	logger "github.com/buhduh/go-logger"
+	logger "github.com/buhduh42/go-logger"
 )
 
 type httpMethod string
@@ -169,6 +169,7 @@ func (m *myHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var errorCode int
 	var message string
 	var ok bool
+	myLogger.Tracef("building parameters for path: '%s'", r.URL.Path)
 	urlParameters, err := m.buildDynamicParameters(r.URL.Path)
 	var fValues, qValues, parameterValues map[string]string
 	if err != nil {
@@ -217,10 +218,12 @@ func (m *myHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	//NOTE it's POSSIBLE params wouldn't be updated between sequential
 	//callback calls, can't think of a clean way to test, moving on
+	//All header/response writes are delegated to the callbacks from here
+	//even if a callback fails w/o writing an error a 200 would be returned by default
 	for _, callback := range m.callbacks {
 		myLogger.Tracef("calling callback with parameters: %+v", parameterValues)
 		ok, err = callback(parameterValues, w, r)
-		myLogger.Debugf("callback returned %t", ok)
+		myLogger.Tracef("callback returned %t", ok)
 		if !ok || err != nil {
 			//TODO logging, leaving callbacks to do their writing
 			if err != nil {

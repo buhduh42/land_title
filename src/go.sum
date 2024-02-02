@@ -1,9 +1,9 @@
 github.com/aws/aws-sdk-go v1.49.15 h1:aH9bSV4kL4ziH0AMtuYbukGIVebXddXBL0cKZ1zj15k=
 github.com/aws/aws-sdk-go v1.49.15/go.mod h1:LF8svs817+Nz+DmiMQKTO3ubZ/6IaTpq3TjupRn3Eqk=
-github.com/buhduh/go-logger v0.0.0-20210323050617-8784dc24f0a4 h1:3rBiYIjsQThxCeQxRmQ1c9Ip2NI2MPEk29+ovZmAb50=
-github.com/buhduh/go-logger v0.0.0-20210323050617-8784dc24f0a4/go.mod h1:B48dkEbAFtJDsz0eoQZfXdA+qRj91djd5Gg5j4B/TrI=
 github.com/buhduh/go-logger v0.0.0-20240117033146-17b3e42ee231 h1:23tpqqGM3x8IBrKI9VMk7D3tZAd2irrVGsFUdOY8wAE=
 github.com/buhduh/go-logger v0.0.0-20240117033146-17b3e42ee231/go.mod h1:B48dkEbAFtJDsz0eoQZfXdA+qRj91djd5Gg5j4B/TrI=
+github.com/buhduh42/go-logger v0.0.0-20240201235147-c08ccbf70c2e h1:7xzkIVhyGuXiFuYGSJGhz8bRA2oNq+LrF5mZfPuIn3w=
+github.com/buhduh42/go-logger v0.0.0-20240201235147-c08ccbf70c2e/go.mod h1:EiOKWV2eLaB4bGiNBPpcUC49bY3T3Xzak808bWTvgfc=
 github.com/davecgh/go-spew v1.1.0 h1:ZDRjVQ15GmhC3fiQ8ni8+OwkZQO4DARzQgrnXU1Liz8=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/jmespath/go-jmespath v0.4.0 h1:BEgLn5cpjn8UN1mAw4NjwDrS35OdebyEtFe+9YPoQUg=
@@ -13,8 +13,6 @@ github.com/jmespath/go-jmespath/internal/testify v1.5.1/go.mod h1:L3OGu8Wl2/fWfC
 github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
-golang.org/x/exp v0.0.0-20240103183307-be819d1f06fc h1:ao2WRsKSzW6KuUY9IWPwWahcHCgR0s52IfwutMfEbdM=
-golang.org/x/exp v0.0.0-20240103183307-be819d1f06fc/go.mod h1:iRJReGqOEeBhDZGkGbynYwcHlctCvnjTYIamk7uXpHI=
 golang.org/x/exp v0.0.0-20240112132812-db7319d0e0e3 h1:hNQpMuAJe5CtcUqCXaWga3FHu+kQvCqcsoVaQgSV60o=
 golang.org/x/exp v0.0.0-20240112132812-db7319d0e0e3/go.mod h1:idGWGoKP1toJGkd5/ig9ZLuPcZBC3ewk7SzmH0uou08=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405 h1:yhCVgyC4o1eVCa2tZl7eS0r+SDo693bJlVdllGtEeKM=

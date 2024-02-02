@@ -22,6 +22,7 @@ func Ptr[T pType](val T) *T {
 // Start=0, Stop=-1 is to the end
 // Rest would be a vararg for sub tests
 // test specific
+// Usage: TEST_INSTRUCTIONS=TestServer:0:0
 type TestMetaData struct {
 	Start int
 	Stop  int
@@ -50,7 +51,7 @@ func GetTestMetaData() (*TestMetaData, error) {
 		}
 	}
 	if len(components) == 3 {
-		rest := strings.Split(components[3], ":")
+		rest := strings.Split(components[2], ":")
 		tmp := make([]int, len(rest))
 		for i, r := range rest {
 			if tmp[i], err = strconv.Atoi(r); err != nil {

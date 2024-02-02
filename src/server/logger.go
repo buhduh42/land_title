@@ -1,7 +1,7 @@
 package server
 
 import (
-	logger "github.com/buhduh/go-logger"
+	logger "github.com/buhduh42/go-logger"
 )
 
 // logging was sort of an after thought and didn't want to keep passing a logger

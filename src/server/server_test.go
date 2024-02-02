@@ -14,7 +14,7 @@ import (
 	"strings"
 	"testing"
 
-	logger "github.com/buhduh/go-logger"
+	logger "github.com/buhduh42/go-logger"
 )
 
 func TestGetHandlePath(t *testing.T) {
@@ -358,29 +358,35 @@ func TestBuildDynamicParameters(t *testing.T) {
 }
 
 type callbackData struct {
-	res bool
-	err error
+	res  bool
+	err  error
+	code *int
 }
 
 var callbackDataMap map[string]callbackData = map[string]callbackData{
 	"cb1": callbackData{
 		true,
 		nil,
+		nil,
 	},
 	"cb2": callbackData{
 		false,
 		fmt.Errorf("cb2 error"),
+		util.Ptr(http.StatusBadRequest),
 	},
 	"cb3": callbackData{
 		true,
 		fmt.Errorf("cb3 error"),
+		util.Ptr(http.StatusBadRequest),
 	},
 	"cb4": callbackData{
 		false,
 		nil,
+		nil,
 	},
 	"cb5": callbackData{
 		true,
+		nil,
 		nil,
 	},
 }
@@ -389,7 +395,7 @@ type testLogger struct {
 	t *testing.T
 }
 
-var logLevel logger.LogLevel = logger.TRACE
+var logLevel logger.LogLevel = logger.DEBUG
 
 func newTestLogger(t *testing.T, pLevel *logger.LogLevel) logger.Logger {
 	level := logLevel
@@ -405,13 +411,16 @@ func (t *testLogger) Write(data []byte) (int, error) {
 }
 
 func makeCallback(
-	tLogger logger.Logger, name string, res bool, err error,
+	tLogger logger.Logger, name string, res bool, err error, code *int,
 ) Callback {
 	//use the headers to verify params are correct
 	return func(params map[string]string, w http.ResponseWriter, r *http.Request) (bool, error) {
 		w.Header().Add("Call_list", name)
 		for k, v := range params {
 			w.Header().Add(k, v)
+		}
+		if code != nil && *code != http.StatusOK {
+			http.Error(w, err.Error(), *code)
 		}
 		return res, err
 	}
@@ -433,7 +442,7 @@ func TestServer(t *testing.T) {
 	callbacks := make(map[string]Callback)
 	myLogger = newTestLogger(t, nil)
 	for name, cb := range callbackDataMap {
-		callbacks[name] = makeCallback(myLogger, name, cb.res, cb.err)
+		callbacks[name] = makeCallback(myLogger, name, cb.res, cb.err, cb.code)
 	}
 	testData := []struct {
 		serverYaml    string
@@ -502,6 +511,7 @@ func TestServer(t *testing.T) {
 			"incorrect parameter type",
 			true,
 			[]testPath{
+				//0
 				testPath{
 					"/bar/",
 					"http://example.com/bar/yolo",
@@ -511,6 +521,7 @@ func TestServer(t *testing.T) {
 					nil,
 					http.StatusBadRequest,
 				},
+				//1
 				testPath{
 					"/bar/",
 					"http://example.com/bar/true",
@@ -522,6 +533,7 @@ func TestServer(t *testing.T) {
 					[]string{"cb1", "cb5"},
 					StatusGoodRequest,
 				},
+				//2
 				testPath{
 					"/foo/",
 					"http://example.com/foo/123.43",
@@ -533,6 +545,7 @@ func TestServer(t *testing.T) {
 					[]string{"cb1", "cb5"},
 					StatusGoodRequest,
 				},
+				//3
 				testPath{
 					"/baz",
 					"http://example.com/baz",
@@ -540,7 +553,7 @@ func TestServer(t *testing.T) {
 					nil,
 					nil,
 					[]string{"cb2"},
-					StatusGoodRequest,
+					http.StatusBadRequest,
 				},
 			},
 		},
@@ -550,6 +563,7 @@ func TestServer(t *testing.T) {
 			"advanced get",
 			true,
 			[]testPath{
+				//0
 				testPath{
 					"/bar/",
 					"http://example.com/bar/true",
@@ -561,17 +575,19 @@ func TestServer(t *testing.T) {
 					[]string{"cb1", "cb5"},
 					StatusGoodRequest,
 				},
+				//1
 				testPath{
 					"/bar/",
 					"http://example.com/bar/FalSe",
 					"GET",
 					nil,
 					map[string]string{
-						"Blarg": "false",
+						"Blarg": "FalSe",
 					},
 					[]string{"cb1", "cb5"},
 					StatusGoodRequest,
 				},
+				//2
 				testPath{
 					"/bar/",
 					"http://example.com/bar?blarg=false",
@@ -583,6 +599,7 @@ func TestServer(t *testing.T) {
 					[]string{"cb1", "cb5"},
 					StatusGoodRequest,
 				},
+				//3
 				testPath{
 					"/bar/",
 					"http://example.com/bar/true?blarg=false",
@@ -594,6 +611,7 @@ func TestServer(t *testing.T) {
 					[]string{"cb1", "cb5"},
 					StatusGoodRequest,
 				},
+				//4
 				testPath{
 					"/bar/",
 					"http://example.com/bar/true?blarg=yolo",
@@ -603,6 +621,7 @@ func TestServer(t *testing.T) {
 					nil,
 					http.StatusBadRequest,
 				},
+				//5
 				testPath{
 					"/foo/",
 					"http://example.com/foo?biff=yolo",
@@ -614,6 +633,7 @@ func TestServer(t *testing.T) {
 					[]string{"cb1", "cb5"},
 					StatusGoodRequest,
 				},
+				//6
 				testPath{
 					"/foo/",
 					"http://example.com/foo/123.43?biff=yolo",
@@ -626,6 +646,7 @@ func TestServer(t *testing.T) {
 					[]string{"cb1", "cb5"},
 					StatusGoodRequest,
 				},
+				//7
 				testPath{
 					"/foo/",
 					"http://example.com/foo/123.43",
@@ -635,6 +656,193 @@ func TestServer(t *testing.T) {
 					nil,
 					http.StatusBadRequest,
 				},
+				//8
+				testPath{
+					"/foo/",
+					"http://example.com/foo/123.43?biff=",
+					"GET",
+					nil,
+					nil,
+					nil,
+					http.StatusBadRequest,
+				},
+				//9
+				testPath{
+					"/baz",
+					"http://example.com/baz?foo=123-12-1234",
+					"GET",
+					nil,
+					map[string]string{
+						"Foo": "123-12-1234",
+					},
+					[]string{"cb2"},
+					http.StatusBadRequest,
+				},
+				//10
+				testPath{
+					"/biff",
+					"http://example.com/biff?foo=123-12-1234",
+					"GET",
+					nil,
+					map[string]string{
+						"Foo": "123-12-1234",
+					},
+					[]string{"cb5", "cb1"},
+					StatusGoodRequest,
+				},
+				//11
+				testPath{
+					"/biff",
+					"http://example.com/biff?foo=blarg",
+					"GET",
+					nil,
+					nil,
+					nil,
+					http.StatusBadRequest,
+				},
+				//12
+				testPath{
+					"/",
+					"http://example.com/?bar=blarg",
+					"GET",
+					nil,
+					nil,
+					nil,
+					http.StatusBadRequest,
+				},
+				//13
+				testPath{
+					"/",
+					"http://example.com/?foo=blarg",
+					"GET",
+					nil,
+					map[string]string{
+						"Foo": "blarg",
+					},
+					[]string{"cb1", "cb5"},
+					StatusGoodRequest,
+				},
+			},
+		},
+		{
+			//5
+			"testdata/post.yaml",
+			"post forms",
+			true,
+			[]testPath{
+				//0
+				testPath{
+					"/",
+					"http://example.com",
+					"GET",
+					nil,
+					nil,
+					nil,
+					http.StatusBadRequest,
+				},
+				//1
+				testPath{
+					"/",
+					"http://example.com?foo=blarg",
+					"GET",
+					nil,
+					map[string]string{
+						"Foo": "blarg",
+					},
+					[]string{"cb1"},
+					StatusGoodRequest,
+				},
+				//2
+				testPath{
+					"/",
+					"http://example.com?foo=blarg&bar=baz",
+					"GET",
+					nil,
+					nil,
+					nil,
+					http.StatusBadRequest,
+				},
+				//3
+				testPath{
+					"/foo",
+					"http://example.com?foo=blarg",
+					"POST",
+					nil,
+					map[string]string{
+						"Foo": "blarg",
+					},
+					[]string{"cb1", "cb5"},
+					StatusGoodRequest,
+				},
+				//4
+				testPath{
+					"/baz/",
+					"http://example.com/baz/123.3",
+					"POST",
+					nil,
+					map[string]string{
+						"Foo": "123.3",
+					},
+					[]string{"cb1", "cb5"},
+					StatusGoodRequest,
+				},
+				//5
+				testPath{
+					"/baz/",
+					"http://example.com/baz/123.3/5?bar=6",
+					"POST",
+					nil,
+					map[string]string{
+						"Foo": "123.3",
+						"Bar": "6",
+					},
+					[]string{"cb1", "cb5"},
+					StatusGoodRequest,
+				},
+				/*
+					Don't really know how to manually build the body of
+					a post request, don't really care, im sure it'll come back up
+					if it don't work
+					//6
+					testPath{
+						"/baz/",
+						"http://example.com/baz/123.3",
+						"POST",
+						util.Ptr("bar=0"),
+						map[string]string{
+							"Foo": "123.3",
+							"Bar": "0",
+						},
+						[]string{"cb1", "cb5"},
+						StatusGoodRequest,
+					},
+					//7
+					testPath{
+						"/baz/",
+						"http://example.com/baz/123.3/1",
+						"POST",
+						util.Ptr("bar=0"),
+						map[string]string{
+							"Foo": "123.3",
+							"Bar": "1",
+						},
+						[]string{"cb1", "cb5"},
+						StatusGoodRequest,
+					},
+					//7
+					testPath{
+						"/baz/",
+						"http://example.com/baz/123.3/1?bar=2",
+						"POST",
+						util.Ptr("bar=0"),
+						map[string]string{
+							"Foo": "123.3",
+							"Bar": "2",
+						},
+						[]string{"cb1", "cb5"},
+						StatusGoodRequest,
+					},
+				*/
 			},
 		},
 	}
@@ -690,9 +898,12 @@ func TestServer(t *testing.T) {
 			if len(tMetaData.Rest) == 1 {
 				testPaths = td.testPaths[tMetaData.Rest[0]:]
 			} else {
-				testPaths = td.testPaths[tMetaData.Rest[0]:tMetaData.Rest[0]]
+				testPaths = td.testPaths[tMetaData.Rest[0]:tMetaData.Rest[1]]
 			}
 		}
+		//t.Logf("tMetaData: %v", tMetaData)
+		//t.Logf("testPaths: %v", testPaths)
+		//return
 		for _, testPath := range testPaths {
 			w := httptest.NewRecorder()
 			var body io.Reader = nil
